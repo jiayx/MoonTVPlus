@@ -32,6 +32,7 @@ export default function ChatFloatingWindow() {
     roomId: watchRoom?.currentRoom?.id || null,
     isMicEnabled,
     isSpeakerEnabled,
+    members: watchRoom?.members || [],
   });
 
   // 当房间变化时重置状态
