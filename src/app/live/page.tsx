@@ -104,6 +104,9 @@ function LivePageClient() {
   // 过滤后的频道列表
   const [filteredChannels, setFilteredChannels] = useState<LiveChannel[]>([]);
 
+  // 搜索关键词
+  const [searchKeyword, setSearchKeyword] = useState('');
+
   // 节目单信息
   const [epgData, setEpgData] = useState<{
     tvgId: string;
@@ -463,6 +466,9 @@ function LivePageClient() {
       // 清空节目单信息
       setEpgData(null);
 
+      // 清空搜索关键词
+      setSearchKeyword('');
+
       setCurrentSource(source);
       await fetchChannels(source);
     } catch (err) {
@@ -656,13 +662,27 @@ function LivePageClient() {
     }
   };
 
+  // 过滤频道（根据分组和搜索关键词）
+  const filterChannels = (group: string, keyword: string) => {
+    let filtered = currentChannels.filter(channel => channel.group === group);
+
+    // 如果有搜索关键词，进一步过滤
+    if (keyword.trim()) {
+      filtered = filtered.filter(channel =>
+        channel.name.toLowerCase().includes(keyword.toLowerCase())
+      );
+    }
+
+    return filtered;
+  };
+
   // 切换分组
   const handleGroupChange = (group: string) => {
     // 如果正在切换直播源，则禁用分组切换
     if (isSwitchingSource) return;
 
     setSelectedGroup(group);
-    const filtered = currentChannels.filter(channel => channel.group === group);
+    const filtered = filterChannels(group, searchKeyword);
     setFilteredChannels(filtered);
 
     // 如果当前选中的频道在新的分组中，自动滚动到该频道位置
@@ -679,6 +699,44 @@ function LivePageClient() {
         });
       }
     }
+  };
+
+  // 处理搜索
+  const handleSearch = (keyword: string) => {
+    setSearchKeyword(keyword);
+
+    if (!selectedGroup) return;
+
+    // 先在当前分组搜索
+    let filtered = filterChannels(selectedGroup, keyword);
+
+    // 如果当前分组没有匹配的频道，且有搜索关键词，轮询所有分组
+    if (filtered.length === 0 && keyword.trim()) {
+      const groups = Object.keys(groupedChannels);
+
+      // 轮询所有分组，找到第一个有匹配频道的分组
+      for (const group of groups) {
+        const groupFiltered = filterChannels(group, keyword);
+        if (groupFiltered.length > 0) {
+          // 找到有匹配频道的分组，自动切换
+          setSelectedGroup(group);
+          setFilteredChannels(groupFiltered);
+
+          // 滚动到频道列表顶端
+          if (channelListRef.current) {
+            channelListRef.current.scrollTo({
+              top: 0,
+              behavior: 'smooth'
+            });
+          }
+
+          return;
+        }
+      }
+    }
+
+    // 如果当前分组有匹配的频道，或者所有分组都没有匹配的频道，使用当前分组的结果
+    setFilteredChannels(filtered);
   };
 
   // 切换收藏
@@ -1503,6 +1561,55 @@ function LivePageClient() {
                 {/* 频道 Tab 内容 */}
                 {activeTab === 'channels' && (
                   <>
+                    {/* 搜索框 */}
+                    <div className='mb-3 -mx-6 px-6 flex-shrink-0'>
+                      <div className='relative'>
+                        <input
+                          type='text'
+                          value={searchKeyword}
+                          onChange={(e) => handleSearch(e.target.value)}
+                          placeholder='搜索频道...'
+                          disabled={isSwitchingSource}
+                          className={`w-full px-3 py-2 pl-9 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
+                            isSwitchingSource ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        />
+                        <svg
+                          className='absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400'
+                          fill='none'
+                          stroke='currentColor'
+                          viewBox='0 0 24 24'
+                        >
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth={2}
+                            d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+                          />
+                        </svg>
+                        {searchKeyword && (
+                          <button
+                            onClick={() => handleSearch('')}
+                            className='absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                          >
+                            <svg
+                              className='w-4 h-4'
+                              fill='none'
+                              stroke='currentColor'
+                              viewBox='0 0 24 24'
+                            >
+                              <path
+                                strokeLinecap='round'
+                                strokeLinejoin='round'
+                                strokeWidth={2}
+                                d='M6 18L18 6M6 6l12 12'
+                              />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
                     {/* 分组标签 */}
                     <div className='flex items-center gap-4 mb-4 border-b border-gray-300 dark:border-gray-700 -mx-6 px-6 flex-shrink-0'>
                       {/* 切换状态提示 */}
@@ -1617,13 +1724,29 @@ function LivePageClient() {
                       ) : (
                         <div className='flex flex-col items-center justify-center py-12 text-center'>
                           <div className='w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4'>
-                            <Tv className='w-8 h-8 text-gray-400 dark:text-gray-600' />
+                            {searchKeyword ? (
+                              <svg
+                                className='w-8 h-8 text-gray-400 dark:text-gray-600'
+                                fill='none'
+                                stroke='currentColor'
+                                viewBox='0 0 24 24'
+                              >
+                                <path
+                                  strokeLinecap='round'
+                                  strokeLinejoin='round'
+                                  strokeWidth={2}
+                                  d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+                                />
+                              </svg>
+                            ) : (
+                              <Tv className='w-8 h-8 text-gray-400 dark:text-gray-600' />
+                            )}
                           </div>
                           <p className='text-gray-500 dark:text-gray-400 font-medium'>
-                            暂无可用频道
+                            {searchKeyword ? '未找到匹配的频道' : '暂无可用频道'}
                           </p>
                           <p className='text-sm text-gray-400 dark:text-gray-500 mt-1'>
-                            请选择其他直播源或稍后再试
+                            {searchKeyword ? '请尝试其他搜索关键词' : '请选择其他直播源或稍后再试'}
                           </p>
                         </div>
                       )}
