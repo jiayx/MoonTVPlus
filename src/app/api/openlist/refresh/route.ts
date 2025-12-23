@@ -35,6 +35,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '未授权' }, { status: 401 });
     }
 
+    // 获取请求参数
+    const body = await request.json().catch(() => ({}));
+    const clearMetaInfo = body.clearMetaInfo === true; // 是否清空 metainfo
+
     // 获取配置
     const config = await getConfig();
     const openListConfig = config.OpenListConfig;
@@ -70,7 +74,8 @@ export async function POST(request: NextRequest) {
       tmdbApiKey,
       tmdbProxy,
       openListConfig.Username,
-      openListConfig.Password
+      openListConfig.Password,
+      clearMetaInfo
     ).catch((error) => {
       console.error('[OpenList Refresh] 后台扫描失败:', error);
       failScanTask(taskId, (error as Error).message);
@@ -100,22 +105,47 @@ async function performScan(
   tmdbApiKey: string,
   tmdbProxy?: string,
   username?: string,
-  password?: string
+  password?: string,
+  clearMetaInfo?: boolean
 ): Promise<void> {
   const client = new OpenListClient(url, username!, password!);
-
-  // 立即清除缓存，确保后续读取的是新数据
-  invalidateMetaInfoCache(rootPath);
 
   // 立即更新进度，确保任务可被查询
   updateScanTaskProgress(taskId, 0, 0);
 
   try {
-    // 1. 不读取现有数据，直接创建新的 metainfo
-    const metaInfo: MetaInfo = {
-      folders: {},
-      last_refresh: Date.now(),
-    };
+    // 1. 根据参数决定是否读取现有数据
+    let metaInfo: MetaInfo;
+
+    if (clearMetaInfo) {
+      // 重新扫描：清空现有数据
+      metaInfo = {
+        folders: {},
+        last_refresh: Date.now(),
+      };
+    } else {
+      // 立即扫描：保留现有数据，从数据库读取
+      try {
+        const metainfoContent = await db.getGlobalValue('video.metainfo');
+        if (metainfoContent) {
+          metaInfo = JSON.parse(metainfoContent);
+        } else {
+          metaInfo = {
+            folders: {},
+            last_refresh: Date.now(),
+          };
+        }
+      } catch (error) {
+        console.error('[OpenList Refresh] 读取现有 metainfo 失败:', error);
+        metaInfo = {
+          folders: {},
+          last_refresh: Date.now(),
+        };
+      }
+    }
+
+    // 清除缓存，确保后续读取的是新数据
+    invalidateMetaInfoCache(rootPath);
 
     // 2. 列出根目录下的所有文件夹（强制刷新 OpenList 缓存）
     // 循环获取所有页的数据
@@ -148,6 +178,7 @@ async function performScan(
 
     // 3. 遍历文件夹，搜索 TMDB
     let newCount = 0;
+    let existingCount = 0;
     let errorCount = 0;
 
     for (let i = 0; i < folders.length; i++) {
@@ -155,6 +186,12 @@ async function performScan(
 
       // 更新进度
       updateScanTaskProgress(taskId, i + 1, folders.length, folder.name);
+
+      // 如果是立即扫描（不清空 metainfo），且文件夹已存在，跳过
+      if (!clearMetaInfo && metaInfo.folders[folder.name]) {
+        existingCount++;
+        continue;
+      }
 
       try {
         // 搜索 TMDB
@@ -236,7 +273,7 @@ async function performScan(
     completeScanTask(taskId, {
       total: folders.length,
       new: newCount,
-      existing: 0,
+      existing: existingCount,
       errors: errorCount,
     });
   } catch (error) {

@@ -120,6 +120,7 @@ interface AlertModalProps {
   message?: string;
   timer?: number;
   showConfirm?: boolean;
+  onConfirm?: () => void;
 }
 
 const AlertModal = ({
@@ -130,6 +131,7 @@ const AlertModal = ({
   message,
   timer,
   showConfirm = false,
+  onConfirm,
 }: AlertModalProps) => {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -196,14 +198,38 @@ const AlertModal = ({
             <p className='text-gray-600 dark:text-gray-400 mb-4'>{message}</p>
           )}
 
-          {showConfirm && (
-            <button
-              onClick={onClose}
-              className={`px-4 py-2 text-sm font-medium ${buttonStyles.primary}`}
-            >
-              确定
-            </button>
-          )}
+          {showConfirm ? (
+            onConfirm ? (
+              // 确认操作：显示取消和确定按钮
+              <div className='flex gap-3 justify-center'>
+                <button
+                  onClick={() => {
+                    onClose();
+                  }}
+                  className={buttonStyles.secondary}
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    if (onConfirm) onConfirm();
+                    onClose();
+                  }}
+                  className={buttonStyles.danger}
+                >
+                  确定
+                </button>
+              </div>
+            ) : (
+              // 普通提示：只显示确定按钮
+              <button
+                onClick={onClose}
+                className={buttonStyles.primary}
+              >
+                确定
+              </button>
+            )
+          ) : null}
         </div>
       </div>
     </div>,
@@ -220,6 +246,7 @@ const useAlertModal = () => {
     message?: string;
     timer?: number;
     showConfirm?: boolean;
+    onConfirm?: () => void;
   }>({
     isOpen: false,
     type: 'success',
@@ -2623,12 +2650,14 @@ const OpenListConfigComponent = ({
     });
   };
 
-  const handleRefresh = async () => {
+  const handleRefresh = async (clearMetaInfo = false) => {
     setRefreshing(true);
     setScanProgress(null);
     try {
       const response = await fetch('/api/openlist/refresh', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearMetaInfo }),
       });
 
       if (!response.ok) {
@@ -2716,6 +2745,36 @@ const OpenListConfigComponent = ({
 
   const handleCorrectSuccess = () => {
     fetchVideos(true); // 强制从数据库重新读取，不使用缓存
+  };
+
+  const handleDeleteVideo = async (folder: string, title: string) => {
+    // 显示确认对话框，直接在 onConfirm 中执行删除操作
+    showAlert({
+      type: 'warning',
+      title: '确认删除',
+      message: `确定要删除视频记录"${title}"吗？此操作不会删除实际文件，只会从列表中移除。`,
+      showConfirm: true,
+      onConfirm: async () => {
+        try {
+          const response = await fetch('/api/openlist/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder }),
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || '删除失败');
+          }
+
+          showSuccess('删除成功', showAlert);
+          await fetchVideos(true); // 强制从数据库重新读取
+          refreshConfig(); // 异步刷新配置以更新资源数量（不等待，避免重复刷新）
+        } catch (error) {
+          showError(error instanceof Error ? error.message : '删除失败', showAlert);
+        }
+      },
+    });
   };
 
   const formatDate = (timestamp?: number) => {
@@ -2883,13 +2942,22 @@ const OpenListConfigComponent = ({
                 </span>
               </div>
             </div>
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className={buttonStyles.primary}
-            >
-              {refreshing ? '扫描中...' : '立即扫描'}
-            </button>
+            <div className='flex gap-3'>
+              <button
+                onClick={() => handleRefresh(true)}
+                disabled={refreshing}
+                className={buttonStyles.warning}
+              >
+                {refreshing ? '扫描中...' : '重新扫描'}
+              </button>
+              <button
+                onClick={() => handleRefresh(false)}
+                disabled={refreshing}
+                className={buttonStyles.primary}
+              >
+                {refreshing ? '扫描中...' : '立即扫描'}
+              </button>
+            </div>
           </div>
 
           {refreshing && scanProgress && (
@@ -2995,6 +3063,12 @@ const OpenListConfigComponent = ({
                           >
                             {video.failed ? '立即纠错' : '纠错'}
                           </button>
+                          <button
+                            onClick={() => handleDeleteVideo(video.folder, video.title)}
+                            className={buttonStyles.dangerSmall}
+                          >
+                            删除
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -3018,6 +3092,7 @@ const OpenListConfigComponent = ({
         message={alertModal.message}
         timer={alertModal.timer}
         showConfirm={alertModal.showConfirm}
+        onConfirm={alertModal.onConfirm}
       />
 
       {/* 纠错对话框 */}

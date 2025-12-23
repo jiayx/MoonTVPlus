@@ -330,12 +330,13 @@ async function refreshOpenList() {
 
     console.log(`开始 OpenList 定时扫描（间隔: ${scanInterval} 分钟）`);
 
-    // 调用扫描接口
+    // 调用扫描接口（立即扫描模式，不清空 metainfo）
     const response = await fetch(`${process.env.SITE_BASE || 'http://localhost:3000'}/api/openlist/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ clearMetaInfo: false }),
     });
 
     if (!response.ok) {
