@@ -17,6 +17,7 @@ export interface AdminConfig {
     DisableYellowFilter: boolean;
     FluidSearch: boolean;
     // 弹幕配置
+    DanmakuSourceType?: 'builtin' | 'custom';
     DanmakuApiBase: string;
     DanmakuApiToken: string;
     // TMDB配置

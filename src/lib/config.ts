@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 
 import { AdminConfig } from './admin.types';
 
+const BUILTIN_DANMAKU_API_BASE = 'https://mtvpls-danmu.netlify.app/87654321';
+
 export interface ApiSite {
   key: string;
   api: string;
@@ -223,6 +225,9 @@ async function getInitConfig(configFile: string, subConfig: {
   } catch (e) {
     cfgFile = {} as ConfigFileStruct;
   }
+  const hasCustomDanmakuEnv = Boolean(
+    process.env.DANMAKU_API_BASE || process.env.DANMAKU_API_TOKEN
+  );
   const adminConfig: AdminConfig = {
     ConfigFile: configSource,
     ConfigSubscribtion: subConfig,
@@ -245,7 +250,10 @@ async function getInitConfig(configFile: string, subConfig: {
       FluidSearch:
         process.env.NEXT_PUBLIC_FLUID_SEARCH !== 'false',
       // 弹幕配置
-      DanmakuApiBase: process.env.DANMAKU_API_BASE || 'http://localhost:9321',
+      DanmakuSourceType: hasCustomDanmakuEnv ? 'custom' : 'builtin',
+      DanmakuApiBase:
+        process.env.DANMAKU_API_BASE ||
+        (hasCustomDanmakuEnv ? 'http://localhost:9321' : BUILTIN_DANMAKU_API_BASE),
       DanmakuApiToken: process.env.DANMAKU_API_TOKEN || '87654321',
       // TMDB配置
       TMDBApiKey: process.env.TMDB_API_KEY || '',
@@ -439,7 +447,8 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
       DoubanImageProxy: '',
       DisableYellowFilter: false,
       FluidSearch: true,
-      DanmakuApiBase: 'http://localhost:9321',
+      DanmakuSourceType: 'builtin',
+      DanmakuApiBase: BUILTIN_DANMAKU_API_BASE,
       DanmakuApiToken: '87654321',
       PansouApiUrl: '',
       PansouUsername: '',
@@ -461,8 +470,14 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
     };
   }
   // 确保弹幕配置存在
+  if (adminConfig.SiteConfig.DanmakuSourceType === undefined) {
+    adminConfig.SiteConfig.DanmakuSourceType = 'custom';
+  }
   if (!adminConfig.SiteConfig.DanmakuApiBase) {
-    adminConfig.SiteConfig.DanmakuApiBase = 'http://localhost:9321';
+    adminConfig.SiteConfig.DanmakuApiBase =
+      adminConfig.SiteConfig.DanmakuSourceType === 'builtin'
+        ? BUILTIN_DANMAKU_API_BASE
+        : 'http://localhost:9321';
   }
   if (!adminConfig.SiteConfig.DanmakuApiToken) {
     adminConfig.SiteConfig.DanmakuApiToken = '87654321';

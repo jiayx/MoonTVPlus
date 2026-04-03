@@ -341,6 +341,7 @@ interface SiteConfig {
   DoubanImageProxy: string;
   DisableYellowFilter: boolean;
   FluidSearch: boolean;
+  DanmakuSourceType?: 'builtin' | 'custom';
   DanmakuApiBase: string;
   DanmakuApiToken: string;
   TMDBApiKey?: string;
@@ -7923,7 +7924,8 @@ const SiteConfigComponent = ({
     DoubanImageProxy: '',
     DisableYellowFilter: false,
     FluidSearch: true,
-    DanmakuApiBase: 'http://localhost:9321',
+    DanmakuSourceType: 'builtin',
+    DanmakuApiBase: 'https://mtvpls-danmu.netlify.app/87654321',
     DanmakuApiToken: '87654321',
     TMDBApiKey: '',
     TMDBProxy: '',
@@ -8018,6 +8020,7 @@ const SiteConfigComponent = ({
         DoubanImageProxy: config.SiteConfig.DoubanImageProxy || '',
         DisableYellowFilter: config.SiteConfig.DisableYellowFilter || false,
         FluidSearch: config.SiteConfig.FluidSearch || true,
+        DanmakuSourceType: config.SiteConfig.DanmakuSourceType || 'custom',
         DanmakuApiBase:
           config.SiteConfig.DanmakuApiBase || 'http://localhost:9321',
         DanmakuApiToken: config.SiteConfig.DanmakuApiToken || '87654321',
@@ -8567,57 +8570,102 @@ const SiteConfigComponent = ({
           弹幕配置
         </summary>
         <div className='mt-4 space-y-4'>
-          {/* 弹幕 API 地址 */}
-          <div>
-            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-              弹幕 API 地址
-            </label>
-            <input
-              type='text'
-              placeholder='http://localhost:9321'
-              value={siteSettings.DanmakuApiBase}
-              onChange={(e) =>
+          <div className='inline-flex rounded-lg bg-gray-100 p-1 dark:bg-gray-800'>
+            <button
+              type='button'
+              onClick={() =>
                 setSiteSettings((prev) => ({
                   ...prev,
-                  DanmakuApiBase: e.target.value,
+                  DanmakuSourceType: 'builtin',
                 }))
               }
-              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent'
-            />
-            <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-              弹幕服务器的 API 地址，默认为 http://localhost:9321。API部署参考
-              <a
-                href='https://github.com/huangxd-/danmu_api.git'
-                target='_blank'
-                rel='noopener noreferrer'
-                className='text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300'
-              >
-                danmu_api
-              </a>
-            </p>
+              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                siteSettings.DanmakuSourceType !== 'custom'
+                  ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+              }`}
+            >
+              内置源
+            </button>
+            <button
+              type='button'
+              onClick={() =>
+                setSiteSettings((prev) => ({
+                  ...prev,
+                  DanmakuSourceType: 'custom',
+                }))
+              }
+              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                siteSettings.DanmakuSourceType === 'custom'
+                  ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+              }`}
+            >
+              自定义源
+            </button>
           </div>
 
-          {/* 弹幕 API Token */}
-          <div>
-            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-              弹幕 API Token
-            </label>
-            <input
-              type='text'
-              placeholder='87654321'
-              value={siteSettings.DanmakuApiToken}
-              onChange={(e) =>
-                setSiteSettings((prev) => ({
-                  ...prev,
-                  DanmakuApiToken: e.target.value,
-                }))
-              }
-              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent'
-            />
-            <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-              弹幕服务器的访问令牌，默认为 87654321
+          {siteSettings.DanmakuSourceType !== 'custom' && (
+            <p className='text-xs text-amber-600 dark:text-amber-400'>
+              ⚠️ 内置弹幕源为多人共享服务，稳定性可能受使用高峰影响，建议自行部署后使用自定义源。
             </p>
-          </div>
+          )}
+
+          {siteSettings.DanmakuSourceType === 'custom' && (
+            <>
+              {/* 弹幕 API 地址 */}
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  弹幕 API 地址
+                </label>
+                <input
+                  type='text'
+                  placeholder='http://localhost:9321'
+                  value={siteSettings.DanmakuApiBase}
+                  onChange={(e) =>
+                    setSiteSettings((prev) => ({
+                      ...prev,
+                      DanmakuApiBase: e.target.value,
+                    }))
+                  }
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent'
+                />
+                <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+                  自定义弹幕服务器的 API 地址。API部署参考
+                  <a
+                    href='https://github.com/huangxd-/danmu_api.git'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='ml-1 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300'
+                  >
+                    danmu_api
+                  </a>
+                </p>
+              </div>
+
+              {/* 弹幕 API Token */}
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  弹幕 API Token
+                </label>
+                <input
+                  type='text'
+                  placeholder='87654321'
+                  value={siteSettings.DanmakuApiToken}
+                  onChange={(e) =>
+                    setSiteSettings((prev) => ({
+                      ...prev,
+                      DanmakuApiToken: e.target.value,
+                    }))
+                  }
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent'
+                />
+                <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+                  自定义弹幕服务器的访问令牌，默认为 87654321
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </details>
 

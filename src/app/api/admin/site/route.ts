@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       DoubanImageProxy,
       DisableYellowFilter,
       FluidSearch,
+      DanmakuSourceType,
       DanmakuApiBase,
       DanmakuApiToken,
       TMDBApiKey,
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
       DoubanImageProxy: string;
       DisableYellowFilter: boolean;
       FluidSearch: boolean;
+      DanmakuSourceType?: 'builtin' | 'custom';
       DanmakuApiBase: string;
       DanmakuApiToken: string;
       TMDBApiKey?: string;
@@ -136,6 +138,9 @@ export async function POST(request: NextRequest) {
       typeof DoubanImageProxy !== 'string' ||
       typeof DisableYellowFilter !== 'boolean' ||
       typeof FluidSearch !== 'boolean' ||
+      (DanmakuSourceType !== undefined &&
+        DanmakuSourceType !== 'builtin' &&
+        DanmakuSourceType !== 'custom') ||
       typeof DanmakuApiBase !== 'string' ||
       typeof DanmakuApiToken !== 'string' ||
       (TMDBApiKey !== undefined && typeof TMDBApiKey !== 'string') ||
@@ -195,6 +200,7 @@ export async function POST(request: NextRequest) {
       DoubanImageProxy,
       DisableYellowFilter,
       FluidSearch,
+      DanmakuSourceType,
       DanmakuApiBase,
       DanmakuApiToken,
       TMDBApiKey,
